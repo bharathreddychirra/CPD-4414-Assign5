@@ -24,6 +24,8 @@ import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.json.Json;
+import javax.json.JsonArrayBuilder;
+import javax.json.JsonObjectBuilder;
 import javax.json.stream.JsonParser;
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
@@ -72,37 +74,35 @@ public class ProductServlet {
      * @return
      */
     private String getResults(String query, String... params) {
-        StringBuilder sb = new StringBuilder();
-        String myString = "";
-        try (java.sql.Connection conn = credentials.getConnection()) {
+        JsonArrayBuilder productArray = Json.createArrayBuilder();
+        String numChanges = new String();
+        try (Connection conn = credentials.getConnection()) {
             PreparedStatement pstmt = conn.prepareStatement(query);
             for (int i = 1; i <= params.length; i++) {
                 pstmt.setString(i, params[i - 1]);
             }
 
             ResultSet rs = pstmt.executeQuery();
-            // sb.append("[");
-            List list = new LinkedList();
+
             while (rs.next()) {
-                //sb.append(String.format("{ \"productId\" : %s , \"name\" : \"%s\", \"description\" : \"%s\", \"quantity\" : %s }" + ",\n", rs.getInt("productID"), rs.getString("name"), rs.getString("description"), rs.getInt("quantity")));
-                //sb.append(", ");
 
-                Map map = new LinkedHashMap();
-                map.put("productID", rs.getInt("productID"));
-                map.put("name", rs.getString("name"));
-                map.put("description", rs.getString("description"));
-                map.put("quantity", rs.getInt("quantity"));
+                JsonObjectBuilder jsonobj = Json.createObjectBuilder()
+                        .add("productID", rs.getInt("productID"))
+                        .add("name", rs.getString("name"))
+                        .add("description", rs.getString("description"))
+                        .add("quantity", rs.getInt("quantity"));
 
-                list.add(map);
-
+                numChanges = jsonobj.build().toString();
+                productArray.add(jsonobj);
             }
-            myString = JSONValue.toJSONString(list);
-            //sb.delete(sb.length() - 2, sb.length() - 1);
-            //sb.append("]");
+
         } catch (SQLException ex) {
             Logger.getLogger(ProductServlet.class.getName()).log(Level.SEVERE, null, ex);
         }
-        return myString.replace("},", "},\n");
+        if (params.length == 0) {
+            numChanges = productArray.build().toString();
+        }
+        return numChanges;
     }
 
     @POST
